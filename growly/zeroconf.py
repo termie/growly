@@ -1,11 +1,9 @@
-#!/usr/bin/env python
 
 """Minimalist Rendezvous Client for Python"""
 __version__ = "0.2"
 __author__ = "Rui Carmo (http://the.taoofmac.com)"
 __copyright__ = "(C) 2004 Rui Carmo. Code under BSD License."
 
-import os
 import socket
 import SocketServer
 import string
@@ -14,12 +12,18 @@ import struct
 _MDNS_ADDR = '224.0.0.251'
 _MDNS_PORT = 5353
 
-class PicoRendezvous(SocketServer.UDPServer):
+class _ReplyHandler(SocketServer.DatagramRequestHandler):
+  def handle(self):
+    ip = self.client_address[0]
+    if ip not in self.server.replies:
+      self.server.replies.append(ip)
+
+class ZeroconfListener(SocketServer.UDPServer):
   allow_reuse_address = True
   replies = []
 
-  def __init__(self):
-    UDPServer.__init__(self, ("localhost", _MDNS_PORT), _ReplyHandler)
+  def __init__(self, bind='localhost', handler=_ReplyHandler):
+    SocketServer.UDPServer.__init__(self, (bind, _MDNS_PORT), handler)
 
   def query(self, proto):
     self.data = struct.pack("!HHHHHH", 0, 0, 1, 0, 0, 0)
@@ -70,14 +74,3 @@ class PicoRendezvous(SocketServer.UDPServer):
                            addr_mdns)
     self.socket.settimeout(0.1)
 
-class _ReplyHandler(SocketServer.DatagramRequestHandler):
-  def handle(self):
-    ip = self.client_address[0]
-    if ip not in self.server.replies:
-      self.server.replies.append(ip)
-
-if __name__ == '__main__':
-  print "Starting Unit Test"
-  print " - please make sure Growl is listening for network notifications"
-  p = PicoRendezvous()
-  print p.query('_growl._tcp.local.')
