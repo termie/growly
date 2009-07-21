@@ -5,22 +5,24 @@ __version__ = "0.2"
 __author__ = "Rui Carmo (http://the.taoofmac.com)"
 __copyright__ = "(C) 2004 Rui Carmo. Code under BSD License."
 
-import string, os, socket, struct
-from SocketServer import *
+import os
+import socket
+import SocketServer
+import string
+import struct
 
 _MDNS_ADDR = '224.0.0.251'
 _MDNS_PORT = 5353
 
-class PicoRendezvous(UDPServer):
+class PicoRendezvous(SocketServer.UDPServer):
   allow_reuse_address = True
   replies = []
 
   def __init__(self):
     UDPServer.__init__(self, ("localhost", _MDNS_PORT), _ReplyHandler)
-  # end def
 
   def query(self, proto):
-    self.data = struct.pack( "!HHHHHH", 0, 0, 1, 0, 0, 0 )
+    self.data = struct.pack("!HHHHHH", 0, 0, 1, 0, 0, 0)
     # pack query
     parts = proto.split('.')
     if parts[-1] == '':
@@ -32,17 +34,16 @@ class PicoRendezvous(UDPServer):
       self.data += struct.pack('!' + str(l) + 's', utf)
     self.data += struct.pack("B", 0)
     # query for any PTR records
-    self.data += struct.pack( "!BBH", 0, 12, 1 )
+    self.data += struct.pack("!BBH", 0, 12, 1)
     try:
-      self.socket.sendto(self.data,0,(_MDNS_ADDR,_MDNS_PORT))
+      self.socket.sendto(self.data, 0, (_MDNS_ADDR, _MDNS_PORT))
     except:
       pass
     tenths = 0
-    while tenths &lt; 20:
+    while tenths < 20:
       self.handle_request()
       tenths = tenths + 1
     return self.replies
-  # end def
 
   def server_bind(self):
     self.group = ('', _MDNS_PORT)
@@ -58,19 +59,22 @@ class PicoRendezvous(UDPServer):
       self.socket.bind(self.group)
     except:
       pass
-    self.socket.setsockopt(socket.SOL_IP, socket.IP_MULTICAST_IF, socket.inet_aton(socket.gethostbyname(socket.gethostname())) + socket.inet_aton('0.0.0.0'))
-    self.socket.setsockopt(socket.SOL_IP, socket.IP_ADD_MEMBERSHIP, socket.inet_aton(_MDNS_ADDR) + socket.inet_aton('0.0.0.0'))
+    addr_host = (socket.inet_aton(socket.gethostbyname(socket.gethostname()))
+                 + socket.inet_aton('0.0.0.0'))
+    self.socket.setsockopt(socket.SOL_IP,
+                           socket.IP_MULTICAST_IF,
+                           addr_host)
+    addr_mdns = socket.inet_aton(_MDNS_ADDR) + socket.inet_aton('0.0.0.0')
+    self.socket.setsockopt(socket.SOL_IP,
+                           socket.IP_ADD_MEMBERSHIP,
+                           addr_mdns)
     self.socket.settimeout(0.1)
-  # end def
-# end class
 
-class _ReplyHandler(DatagramRequestHandler):
+class _ReplyHandler(SocketServer.DatagramRequestHandler):
   def handle(self):
     ip = self.client_address[0]
     if ip not in self.server.replies:
       self.server.replies.append(ip)
-  # end def
-# end class
 
 if __name__ == '__main__':
   print "Starting Unit Test"
