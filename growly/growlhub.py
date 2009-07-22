@@ -17,15 +17,21 @@ class GrowlHubWatcher(threading.Thread):
   def shutdown(self):
     self.timer.set()
 
+  def fetch_packets(self):
+    rv = urllib2.urlopen(self.url)
+    data = rv.read()
+    if data:
+      parts = data.split('\x00\x00\x00')
+      return [protocol.GrowlPacket(part) for part in parts]
+    return []
+
   def run(self):
     """Main loop"""
     while 1:
       if self.timer.isSet(): return
       try:
-        rv = urllib2.urlopen(self.url)
-        data = rv.read()
-        if data:
-          packet = protocol.GrowlPacket(data, self.password)
+        packets = self.fetch_packets()
+        for packet in packets:
           self.relay.notify(packet)
       except urllib2.HTTPError, e:
         logging.exception('Errr %s', e)
